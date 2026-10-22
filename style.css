@@ -669,42 +669,168 @@ dialog::backdrop { background: rgba(42, 36, 33, 0.38); }
   .search { flex: 1; width: auto; }
 }
 
+/* Touch screens: tapping a card opens it (with Delete inside), so hide the small icons */
+@media (hover: none) {
+  .card-actions { display: none; }
+}
+
+/* Phone-only elements are hidden on larger screens */
+.status-tiles, .fab { display: none; }
+
+/* ---------- Phones ---------- */
 @media (max-width: 760px) {
   .page {
     padding-left: max(16px, env(safe-area-inset-left));
     padding-right: max(16px, env(safe-area-inset-right));
   }
 
-  .masthead { flex-direction: column; align-items: stretch; gap: 18px; padding-top: 28px; }
-  .masthead-side { align-items: stretch; }
-  .masthead-side .kicker { display: none; }
-  .masthead-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .masthead-actions .btn-primary { grid-row: 1; grid-column: 1 / -1; margin-left: 0; }
-  .masthead-actions .btn-quiet { border-color: var(--rule); background: var(--sheet); }
-  .backup-status { margin-top: 0; text-align: center; }
+  /* Compact header: title, then one row with backup status + Export/Import */
+  .masthead { flex-direction: column; align-items: stretch; gap: 12px; padding: 22px 0 14px; }
+  .masthead h1 { font-size: 23px; letter-spacing: 0.07em; white-space: nowrap; }
+  .masthead .kicker { display: none; }
+  .masthead-side { flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }
+  .masthead-actions { gap: 6px; }
+  .masthead-actions .btn-primary { display: none; }
+  .masthead-actions .btn-quiet { padding: 7px 10px; font-size: 10px; border-color: var(--rule); background: var(--sheet); }
+  .backup-status { margin: 0; }
 
-  .overview { grid-template-columns: 1fr; }
-  .overview > * + * { border-left: 0; border-top: 1px solid var(--rule); }
-  .overview > * { padding: 18px; }
-  .overview-chart { display: none; }
-  .ledger { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 18px; }
-  .ledger-cell { padding: 0 0 0 12px; }
-  .ledger-cell:nth-child(3n + 1) { border-left: 0; padding-left: 0; }
-  .ledger-num { font-size: 36px; }
+  /* Overview: only "Coming up" — the status counts live in the tiles below */
+  .overview { grid-template-columns: 1fr; margin-top: 16px; }
+  .overview-chart, .overview-stats { display: none; }
+  .overview > * { padding: 14px 16px 10px; }
+  .overview-upcoming { border-top: 0 !important; }
 
+  .board-bar { margin-top: 22px; gap: 10px; }
   .tabs { justify-content: space-between; gap: 8px; }
-  .board-tools { gap: 8px; }
+  .board-tools { gap: 8px; padding-bottom: 12px; }
   .view-toggle button { padding: 8px 10px; }
 
-  .board {
-    grid-auto-columns: 84%;
-    margin: 18px -16px 0;
-    padding: 0 16px 8px;
-    scroll-padding-inline: 16px;
+  /* Status tiles = tabs for the board, and drop targets while dragging */
+  .status-tiles {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 14px;
   }
-  .column { min-height: 300px; }
+  body.is-dragging .status-tiles {
+    position: sticky;
+    top: 8px;
+    z-index: 900;
+    padding: 6px;
+    margin-left: -6px;
+    margin-right: -6px;
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    border-radius: 8px;
+    box-shadow: 0 8px 20px -12px rgba(0, 0, 0, 0.35);
+  }
+  .status-tile {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    min-width: 0;
+    min-height: 46px;
+    padding: 8px 10px;
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    background: var(--sheet);
+    color: var(--ink-soft);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .tile-name { display: flex; align-items: center; gap: 6px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile-count { font-family: var(--serif); font-weight: 600; font-size: 21px; line-height: 1; font-variant-numeric: lining-nums; color: var(--ink); }
+  .status-tile[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--status) 22%, var(--sheet));
+    border-color: color-mix(in srgb, var(--status) 65%, var(--rule));
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .status-tile.drop-target {
+    background: color-mix(in srgb, var(--status) 35%, var(--sheet));
+    outline: 2px dashed var(--status);
+    outline-offset: 1px;
+  }
 
+  /* Board: one status at a time, full width */
+  .board { display: block; margin-top: 12px; padding: 0; overflow: visible; }
+  .board .column { display: none; min-height: 0; background: none; border: 0; }
+  .board .column.is-current { display: flex; }
+  .column-head { display: none; }
+  .card-list { padding: 0; }
+  .card-list:empty::before { content: "Nothing here yet — tap + to add one"; min-height: 120px; padding: 0 16px; text-align: center; }
+  body.is-dragging .card-list:empty::before { content: "Drop on a status above"; }
+
+  .hint { margin-top: 16px; }
+  .footer { padding-bottom: 100px; } /* room for the + button */
+
+  /* Floating "New application" button */
+  .fab {
+    display: grid;
+    place-items: center;
+    position: fixed;
+    right: max(18px, env(safe-area-inset-right));
+    bottom: max(22px, calc(env(safe-area-inset-bottom) + 12px));
+    z-index: 1500;
+    width: 58px;
+    height: 58px;
+    border: 0;
+    border-radius: 50%;
+    background: var(--button);
+    color: var(--button-text);
+    box-shadow: 0 12px 26px -8px rgba(0, 0, 0, 0.45);
+    cursor: pointer;
+  }
+  .fab .icon { width: 24px; height: 24px; stroke-width: 2; }
+  .fab:active { transform: scale(0.95); }
+  body.is-dragging .fab { opacity: 0; pointer-events: none; }
+
+  .toast { bottom: max(96px, calc(env(safe-area-inset-bottom) + 86px)); }
+
+  /* List view: each application becomes a compact block instead of a wide table */
+  .table-wrap { margin-top: 14px; overflow: visible; }
+  .table thead { display: none; }
+  .table, .table tbody { display: block; }
+  .table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 3px 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .table th, .table td { padding: 0; border: 0; white-space: normal; }
+  .table .col-company { position: static; grid-column: 1; align-self: center; max-width: none; background: none !important; font-size: 15px; }
+  .table td.status-cell { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+  .table td[data-label] { grid-column: 1; font-size: 12.5px; color: var(--muted); }
+  .table td[data-label]:not([data-label="Type"])::before { content: attr(data-label) " · "; }
+  .table td.is-empty { display: none; }
+  .table td.urgent { font-weight: 600; }
+  .table tr.needs-followup { box-shadow: inset 3px 0 0 var(--followup); }
+  .table tr.needs-followup .col-company { box-shadow: none; }
+  .table tbody tr:only-child { display: block; }
+
+  /* Dialog: full screen, with Save always reachable at the bottom */
+  dialog {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    max-height: 100%;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+  #appForm { min-height: 100%; padding: 18px 16px 0; padding-top: max(18px, env(safe-area-inset-top)); }
+  #appForm h2 { font-size: 22px; }
   .field-row { flex-direction: column; }
-  #appForm { padding: 20px; }
   .activity-list li { grid-template-columns: 96px 1fr; }
+  .dialog-actions {
+    position: sticky;
+    bottom: 0;
+    margin: auto -16px 0;
+    padding: 12px 16px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    background: var(--sheet);
+  }
 }

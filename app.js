@@ -46,6 +46,7 @@ const ACTIVITY_TEXT = {
 /* ---------- DOM ---------- */
 const $ = (id) => document.getElementById(id);
 const board = $('board');
+const statusTiles = $('statusTiles');
 const listView = $('listView');
 const tableHead = $('tableHead');
 const tableBody = $('tableBody');
@@ -84,6 +85,10 @@ let activeView = 'board';
 let searchQuery = '';
 let sort = { key: 'activity', dir: 'desc' };
 let editingId = null;
+let mobileStatus = 'sent'; // which status is shown on phones
+
+const mobileQuery = window.matchMedia('(max-width: 760px)');
+const isMobile = () => mobileQuery.matches;
 
 /* =========================================================
    Dates
@@ -448,9 +453,16 @@ function render() {
 
   board.hidden = activeView !== 'board';
   listView.hidden = activeView !== 'list';
-  hint.textContent = activeView === 'board'
-    ? 'Click a card to open it. Drag cards between columns; on a phone, press and hold first.'
-    : 'Click a row to open it. Click a column title to sort, or change the status right in the table.';
+  statusTiles.hidden = activeView !== 'board';
+  if (activeView === 'board') {
+    hint.textContent = isMobile()
+      ? 'Tap a card to open it. Press and hold a card, then drop it on a status to move it.'
+      : 'Click a card to open it. Drag cards between columns to change their status.';
+  } else {
+    hint.textContent = isMobile()
+      ? 'Tap an application to open it, or change its status right here.'
+      : 'Click a row to open it. Click a column title to sort, or change the status right in the table.';
+  }
 
   if (activeView === 'board') renderBoard(visible);
   else renderTable(visible);
@@ -476,7 +488,29 @@ function renderBoard(visible) {
     const apps = visible.filter((a) => a.status === status.id).sort(boardOrder);
     column.querySelector('.card-list').replaceChildren(...apps.map(renderCard));
     column.querySelector('.count').textContent = apps.length;
+    column.classList.toggle('is-current', status.id === mobileStatus);
   }
+  renderStatusTiles(visible);
+}
+
+// Phones show one status at a time; these tiles switch between them
+function renderStatusTiles(visible) {
+  statusTiles.replaceChildren(...STATUSES.map((status) => {
+    const tile = document.createElement('button');
+    tile.type = 'button';
+    tile.className = 'status-tile';
+    tile.dataset.status = status.id;
+    tile.setAttribute('aria-pressed', String(status.id === mobileStatus));
+    tile.innerHTML = '<span class="tile-name"><i class="swatch"></i><span></span></span><span class="tile-count"></span>';
+    tile.querySelector('.tile-name span').textContent = status.label;
+    tile.querySelector('.tile-count').textContent = visible.filter((a) => a.status === status.id).length;
+    return tile;
+  }));
+}
+
+function showMobileStatus(status) {
+  mobileStatus = status;
+  render();
 }
 
 function metaLine(text, className = '') {
@@ -584,9 +618,11 @@ function sortedForTable(list) {
   });
 }
 
-function cell(text, className) {
+function cell(text, className, label) {
   const td = document.createElement('td');
   if (className) td.className = className;
+  if (label) td.dataset.label = label;
+  if (text === '—') td.classList.add('is-empty');
   td.textContent = text;
   return td;
 }
@@ -619,6 +655,7 @@ function renderTable(visible) {
     company.textContent = app.company;
 
     const statusTd = document.createElement('td');
+    statusTd.className = 'status-cell';
     const pill = document.createElement('label');
     pill.className = 'status-pill';
     pill.dataset.status = app.status;
@@ -635,17 +672,17 @@ function renderTable(visible) {
       ? `${last.kind === 'followup' ? 'Followed up' : STATUS_LABEL[last.status]} · ${formatShortDate(last.at)}`
       : '—';
 
-    const deadlineTd = cell(app.deadline ? formatDate(app.deadline) : '—');
+    const deadlineTd = cell(app.deadline ? formatDate(app.deadline) : '—', '', 'Deadline');
     if (app.status === 'planned' && app.deadline && -daysSince(app.deadline) <= 3) deadlineTd.classList.add('urgent');
 
     tr.append(
       company,
-      cell(TYPES[app.type], 'muted'),
+      cell(TYPES[app.type], 'muted', 'Type'),
       statusTd,
-      cell(app.dateSent ? formatDate(app.dateSent) : '—'),
+      cell(app.dateSent ? formatDate(app.dateSent) : '—', '', 'Sent'),
       deadlineTd,
-      cell(app.interviewAt ? formatInterview(app.interviewAt) : '—'),
-      cell(lastText, 'muted'),
+      cell(app.interviewAt ? formatInterview(app.interviewAt) : '—', '', 'Interview'),
+      cell(lastText, 'muted', 'Last activity'),
     );
     return tr;
   }));
@@ -770,7 +807,8 @@ function renderUpcoming(visible) {
     return;
   }
 
-  const rows = items.slice(0, UPCOMING_MAX).map((item) => {
+  const max = isMobile() ? 3 : UPCOMING_MAX;
+  const rows = items.slice(0, max).map((item) => {
     const li = document.createElement('li');
     li.className = 'up-item';
 
@@ -798,10 +836,10 @@ function renderUpcoming(visible) {
     return li;
   });
 
-  if (items.length > UPCOMING_MAX) {
+  if (items.length > max) {
     const more = document.createElement('li');
     more.className = 'up-more';
-    more.textContent = `and ${items.length - UPCOMING_MAX} more`;
+    more.textContent = `and ${items.length - max} more`;
     rows.push(more);
   }
   upcomingList.replaceChildren(...rows);
@@ -1133,7 +1171,7 @@ function startDrag() {
     offsetY: startY - rect.top,
     x,
     y,
-    column: null,
+    target: null,
     raf: requestAnimationFrame(autoScroll),
   };
   updateDrag();
@@ -1143,12 +1181,13 @@ function updateDrag() {
   const { ghost, x, y, offsetX, offsetY } = drag;
   ghost.style.transform = `translate(${x - offsetX}px, ${y - offsetY}px) rotate(2deg)`;
 
+  // Drop targets: board columns (desktop) or status tiles (phones)
   const under = document.elementFromPoint(x, y);
-  const column = under ? under.closest('.column') : null;
-  if (column !== drag.column) {
-    if (drag.column) drag.column.classList.remove('drop-target');
-    if (column) column.classList.add('drop-target');
-    drag.column = column;
+  const target = under ? under.closest('.column, .status-tile') : null;
+  if (target !== drag.target) {
+    if (drag.target) drag.target.classList.remove('drop-target');
+    if (target) target.classList.add('drop-target');
+    drag.target = target;
   }
 }
 
@@ -1185,11 +1224,11 @@ function endDrag(e, drop) {
   }
   if (!drag || e.pointerId !== drag.pointerId) return;
 
-  const { id, card, ghost, column, raf } = drag;
+  const { id, card, ghost, target, raf } = drag;
   cancelAnimationFrame(raf);
   ghost.remove();
   card.classList.remove('dragging');
-  if (column) column.classList.remove('drop-target');
+  if (target) target.classList.remove('drop-target');
   document.body.classList.remove('is-dragging');
   drag = null;
 
@@ -1197,7 +1236,13 @@ function endDrag(e, drop) {
   suppressClick = true;
   setTimeout(() => { suppressClick = false; }, 0);
 
-  if (drop && column) setStatus(id, column.dataset.status);
+  if (!drop || !target) return;
+  const app = findApp(id);
+  const status = target.dataset.status;
+  if (!app || app.status === status) return;
+  setStatus(id, status);
+  // On phones the card disappears from view, so say where it went
+  if (target.classList.contains('status-tile')) showToast(`Moved ${app.company} to ${STATUS_LABEL[status]}.`);
 }
 
 /* =========================================================
@@ -1206,6 +1251,12 @@ function endDrag(e, drop) {
 
 function bindEvents() {
   $('addBtn').addEventListener('click', () => openDialog());
+  $('fabAdd').addEventListener('click', () => openDialog());
+  statusTiles.addEventListener('click', (e) => {
+    const tile = e.target.closest('.status-tile');
+    if (tile && !suppressClick) showMobileStatus(tile.dataset.status);
+  });
+  mobileQuery.addEventListener('change', render);
   $('cancelBtn').addEventListener('click', closeDialog);
   $('exportBtn').addEventListener('click', exportBackup);
   $('importBtn').addEventListener('click', () => importInput.click());
@@ -1306,8 +1357,9 @@ function bindEvents() {
     if (activeView !== 'board') {
       activeView = 'board';
       storageSet(VIEW_KEY, activeView);
-      render();
     }
+    mobileStatus = item.dataset.status;
+    render();
     $(`column-${item.dataset.status}`).scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'start' });
   });
 

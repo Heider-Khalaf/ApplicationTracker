@@ -98,6 +98,9 @@
     </div>
 
     <main>
+      <!-- Phones: status tiles act as tabs (and drop targets) for the board -->
+      <nav class="status-tiles" id="statusTiles" aria-label="Choose status"></nav>
+
       <section class="board" id="board" aria-label="Application board"></section>
 
       <section class="table-wrap" id="listView" aria-label="Application list" hidden>
@@ -114,6 +117,10 @@
       <p>Your data is stored only in this browser. Nothing is uploaded anywhere — use Export to keep a backup.</p>
     </footer>
   </div>
+
+  <button type="button" id="fabAdd" class="fab" aria-label="New application">
+    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
