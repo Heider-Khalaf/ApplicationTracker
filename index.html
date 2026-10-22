@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Application Tracker</title>
+  <meta name="description" content="Keep track of job applications, trainee programs and bachelor project requests.">
+
+  <!-- Installable app (PWA) -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#f5f0e8" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#191614" media="(prefers-color-scheme: dark)">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Applications">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%232a2421'/><rect x='7' y='9' width='5' height='14' fill='%23c98a7e'/><rect x='14' y='9' width='5' height='10' fill='%23c8a15a'/><rect x='21' y='9' width='5' height='6' fill='%237d9a83'/></svg>">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Work+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="page">
+    <header class="masthead">
+      <div>
+        <h1>Application Tracker</h1>
+        <p class="kicker">Jobs <span>·</span> Trainee programs <span>·</span> Bachelor projects</p>
+      </div>
+      <div class="masthead-side">
+        <p class="kicker" id="today"></p>
+        <div class="masthead-actions">
+          <button type="button" id="exportBtn" class="btn btn-quiet" title="Download all your applications as a backup file">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>
+            Export
+          </button>
+          <button type="button" id="importBtn" class="btn btn-quiet" title="Restore applications from a backup file">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M7 9l5-5 5 5M5 20h14"/></svg>
+            Import
+          </button>
+          <button type="button" id="addBtn" class="btn btn-primary">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            New application
+          </button>
+        </div>
+        <p class="backup-status" id="backupStatus"></p>
+        <input type="file" id="importInput" accept=".json,application/json" hidden>
+      </div>
+    </header>
+
+    <p id="storageNote" class="storage-note" hidden>
+      Your browser is blocking local storage, so changes will be lost when you close this page.
+    </p>
+
+    <section class="overview" aria-label="Overview">
+      <div class="overview-chart">
+        <h2 class="label">Overview</h2>
+        <div class="donut-wrap">
+          <svg id="donut" viewBox="0 0 120 120" role="img" aria-label="Applications by status"></svg>
+          <div class="donut-center">
+            <strong id="donutTotal">0</strong>
+            <small id="donutLabel">applications</small>
+          </div>
+        </div>
+        <p class="avg-reply" id="avgReply"></p>
+      </div>
+
+      <div class="overview-stats">
+        <h2 class="label">By status</h2>
+        <div class="ledger" id="ledger"></div>
+      </div>
+
+      <div class="overview-upcoming">
+        <h2 class="label">Coming up <span id="upcomingCount"></span></h2>
+        <ol class="upcoming" id="upcoming"></ol>
+      </div>
+    </section>
+
+    <div class="board-bar">
+      <div class="tabs" id="filter" role="group" aria-label="Filter by type">
+        <button type="button" data-filter="all">All <span class="tab-count"></span></button>
+        <button type="button" data-filter="job">Job <span class="tab-count"></span></button>
+        <button type="button" data-filter="trainee">Trainee <span class="tab-count"></span></button>
+        <button type="button" data-filter="bachelor">Bachelor <span class="tab-count"></span></button>
+      </div>
+      <div class="board-tools">
+        <label class="search">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
+          <input type="search" id="search" placeholder="Search applications…" aria-label="Search applications" autocomplete="off">
+        </label>
+        <div class="view-toggle" id="viewToggle" role="group" aria-label="Choose view">
+          <button type="button" data-view="board">Board</button>
+          <button type="button" data-view="list">List</button>
+        </div>
+      </div>
+    </div>
+
+    <main>
+      <section class="board" id="board" aria-label="Application board"></section>
+
+      <section class="table-wrap" id="listView" aria-label="Application list" hidden>
+        <table class="table">
+          <thead><tr id="tableHead"></tr></thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </section>
+
+      <p class="hint" id="hint">Click a card to open it. Drag cards between columns; on a phone, press and hold first.</p>
+    </main>
+
+    <footer class="footer">
+      <p>Your data is stored only in this browser. Nothing is uploaded anywhere — use Export to keep a backup.</p>
+    </footer>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <dialog id="appDialog" aria-labelledby="dialogTitle">
+    <form id="appForm" novalidate>
+      <h2 id="dialogTitle">New application</h2>
+
+      <label class="field">
+        <span>Company name *</span>
+        <input name="company" type="text" required maxlength="100" autocomplete="off">
+      </label>
+
+      <div class="field-row">
+        <label class="field">
+          <span>Type *</span>
+          <select name="type" required>
+            <option value="job">Job</option>
+            <option value="trainee">Trainee program</option>
+            <option value="bachelor">Bachelor project</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Status</span>
+          <select name="status" id="statusSelect"></select>
+        </label>
+      </div>
+
+      <div class="field-row">
+        <label class="field" id="dateSentField">
+          <span>Date sent *</span>
+          <input name="dateSent" type="date">
+        </label>
+        <label class="field">
+          <span>Application deadline</span>
+          <input name="deadline" type="date">
+        </label>
+      </div>
+
+      <div class="field-row">
+        <label class="field">
+          <span>Interview (date &amp; time)</span>
+          <input name="interviewAt" type="datetime-local">
+        </label>
+        <label class="field">
+          <span>Contact person</span>
+          <input name="contact" type="text" maxlength="100" autocomplete="off">
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Link</span>
+        <input name="link" type="text" inputmode="url" placeholder="https://…" maxlength="500" autocomplete="off">
+      </label>
+
+      <label class="field">
+        <span>Notes</span>
+        <textarea name="notes" rows="3" maxlength="2000"></textarea>
+      </label>
+
+      <section class="activity" id="activity" hidden>
+        <div class="activity-head">
+          <h3 class="label">Activity</h3>
+          <button type="button" class="btn btn-quiet btn-small" id="logFollowUpBtn">Log follow-up</button>
+        </div>
+        <p class="activity-summary" id="activitySummary"></p>
+        <ol class="activity-list" id="activityList"></ol>
+      </section>
+
+      <p class="form-error" id="formError" hidden></p>
+
+      <div class="dialog-actions">
+        <button type="button" id="deleteBtn" class="btn btn-danger" hidden>Delete</button>
+        <span class="spacer"></span>
+        <button type="button" id="cancelBtn" class="btn">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <template id="cardTemplate">
+    <article class="card" tabindex="0">
+      <div class="card-top">
+        <span class="card-type"></span>
+        <div class="card-actions">
+          <button type="button" class="icon-btn" data-action="edit" aria-label="Edit">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/></svg>
+          </button>
+          <button type="button" class="icon-btn" data-action="delete" aria-label="Delete">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+          </button>
+        </div>
+      </div>
+      <h3 class="company"></h3>
+      <div class="card-meta"></div>
+      <p class="notes"></p>
+      <a class="link" target="_blank" rel="noopener noreferrer">Open link</a>
+      <div class="followup-bar">
+        <span class="followup-text"></span>
+        <button type="button" class="followup-btn" data-action="followup">Followed up</button>
+      </div>
+    </article>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
