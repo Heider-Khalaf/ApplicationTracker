@@ -2,7 +2,7 @@
 
 Application Tracker is a web app that helps students keep track of job applications, trainee programs and bachelor project requests sent to companies.
 
-**Live app:** https://heider-khalaf.github.io/ApplicationTracker/
+**Live app:** [heider-khalaf.github.io/ApplicationTracker](https://heider-khalaf.github.io/ApplicationTracker/)
 
 A kanban board with follow-up reminders, deadlines, interviews, activity history and a sortable list view.
 Plain HTML, CSS and JavaScript — no frameworks, no build step, no backend.
@@ -51,19 +51,12 @@ localStorage.removeItem('applicationTracker.applications.v1')
 
 ## Run locally
 
-Open `index.html` in a browser. (Offline mode and installing need the app to be served over http(s),
-e.g. from GitHub Pages — everything else works straight from the file.)
-
-## Publish on GitHub Pages
-
-1. Create a new repository on GitHub and push all these files (including `icons/`) to the `main` branch.
-2. In the repository go to **Settings → Pages**.
-3. Under **Build and deployment**, choose **Deploy from a branch**, select `main` and `/ (root)`, then **Save**.
-4. After a minute the app is live at `https://<your-username>.github.io/<repository-name>/`.
+Open `index.html` in a browser. Everything works straight from the file, except offline mode and
+installing — those need the [live app](https://heider-khalaf.github.io/ApplicationTracker/).
 
 ## Install it like an app
 
-- **iPhone (Safari)**: open the GitHub Pages link → Share → **Add to Home Screen**.
+- **iPhone (Safari)**: open the [live app](https://heider-khalaf.github.io/ApplicationTracker/) → Share → **Add to Home Screen**.
 - **Android (Chrome)**: open the link → ⋮ menu → **Install app** / **Add to Home screen**.
 - **Desktop (Chrome/Edge)**: click the install icon in the address bar.
 
